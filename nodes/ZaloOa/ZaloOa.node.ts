@@ -423,6 +423,13 @@ export class ZaloOa implements INodeType {
 						description: 'Gửi tin nhắn tư vấn dạng văn bản tới user_id (cửa sổ 7 ngày kể từ lần tương tác gần nhất)',
 						action: 'Send consultation text message',
 					},
+					{
+						// eslint-disable-next-line n8n-nodes-base/node-param-display-name-miscased
+						name: 'Gửi Tin Tư Vấn Đính Kèm Ảnh',
+						value: 'sendImage',
+						description: 'Gửi tin nhắn tư vấn đính kèm ảnh (qua URL hoặc Attachment ID) tới user_id (cửa sổ 7 ngày)',
+						action: 'Send consultation image message',
+					},
 				],
 				default: 'sendText',
 			},
@@ -433,7 +440,7 @@ export class ZaloOa implements INodeType {
 				required: true,
 				default: '',
 				description: 'Zalo User ID của người nhận (phải đã tương tác với OA trong vòng 7 ngày)',
-				displayOptions: { show: { resource: ['cs'], operation: ['sendText'] } },
+				displayOptions: { show: { resource: ['cs'], operation: ['sendText', 'sendImage'] } },
 			},
 			{
 				displayName: 'Nội Dung Văn Bản',
@@ -444,6 +451,53 @@ export class ZaloOa implements INodeType {
 				typeOptions: { rows: 4 },
 				description: 'Nội dung tin nhắn văn bản cần gửi (tối đa 500 ký tự theo quy định Zalo)',
 				displayOptions: { show: { resource: ['cs'], operation: ['sendText'] } },
+			},
+
+			// ── CS: Gửi Tin Tư Vấn Đính Kèm Ảnh ────────────────────────────────────
+			{
+				// eslint-disable-next-line n8n-nodes-base/node-param-display-name-miscased
+				displayName: 'Nguồn Ảnh',
+				name: 'csImageSource',
+				type: 'options',
+				default: 'url',
+				description: 'Chọn cách cung cấp ảnh: dùng URL công khai hoặc Attachment ID đã upload lên Zalo',
+				// eslint-disable-next-line @n8n/community-nodes/options-sorted-alphabetically
+				options: [
+					// eslint-disable-next-line n8n-nodes-base/node-param-display-name-miscased
+					{ name: 'URL Ảnh Công Khai', value: 'url' },
+					// eslint-disable-next-line n8n-nodes-base/node-param-display-name-miscased
+					{ name: 'Attachment ID (Đã Upload Lên Zalo)', value: 'attachmentId' },
+				],
+				displayOptions: { show: { resource: ['cs'], operation: ['sendImage'] } },
+			},
+			{
+				// eslint-disable-next-line n8n-nodes-base/node-param-display-name-miscased
+				displayName: 'URL Ảnh',
+				name: 'csImageUrl',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'https://example.com/image.jpg',
+				description: 'Đường dẫn URL công khai tới ảnh (JPG/PNG, kích thước ≤ 5MB theo Zalo)',
+				displayOptions: { show: { resource: ['cs'], operation: ['sendImage'], csImageSource: ['url'] } },
+			},
+			{
+				displayName: 'Attachment ID',
+				name: 'csAttachmentId',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Attachment ID nhận được sau khi upload ảnh qua API upload của Zalo',
+				displayOptions: { show: { resource: ['cs'], operation: ['sendImage'], csImageSource: ['attachmentId'] } },
+			},
+			{
+				displayName: 'Chú Thích (Caption - Tuỳ Chọn)',
+				name: 'csImageCaption',
+				type: 'string',
+				default: '',
+				typeOptions: { rows: 3 },
+				description: 'Đoạn văn bản đi kèm ảnh (có thể để trống nếu chỉ gửi ảnh)',
+				displayOptions: { show: { resource: ['cs'], operation: ['sendImage'] } },
 			},
 
 			// ══════════════════════════════════════════════════════════════════════════
@@ -687,6 +741,61 @@ export class ZaloOa implements INodeType {
 					const requestBody: IDataObject = {
 						recipient: { user_id: userId },
 						message: { text },
+					};
+
+					result = await callZaloApi(
+						this,
+						'POST',
+						ZALO_OA_API_BASE,
+						'/v3.0/oa/message/cs',
+						requestBody,
+						creds,
+					);
+				} else if (operation === 'sendImage') {
+					const userId = this.getNodeParameter('csUserId', i) as string;
+					const imageSource = this.getNodeParameter('csImageSource', i) as string;
+					const caption = this.getNodeParameter('csImageCaption', i) as string;
+
+					const element: IDataObject = { media_type: 'image' };
+					if (imageSource === 'url') {
+						const imageUrl = this.getNodeParameter('csImageUrl', i) as string;
+						if (!imageUrl) {
+							throw new NodeOperationError(
+								this.getNode(),
+								'URL ảnh không được để trống khi nguồn ảnh là URL.',
+								{ itemIndex: i },
+							);
+						}
+						element.url = imageUrl;
+					} else {
+						const attachmentId = this.getNodeParameter('csAttachmentId', i) as string;
+						if (!attachmentId) {
+							throw new NodeOperationError(
+								this.getNode(),
+								'Attachment ID không được để trống khi nguồn ảnh là Attachment ID.',
+								{ itemIndex: i },
+							);
+						}
+						element.attachment_id = attachmentId;
+					}
+
+					const message: IDataObject = {
+						attachment: {
+							type: 'template',
+							payload: {
+								template_type: 'media',
+								elements: [element],
+							},
+						},
+					};
+
+					if (caption) {
+						message.text = caption;
+					}
+
+					const requestBody: IDataObject = {
+						recipient: { user_id: userId },
+						message,
 					};
 
 					result = await callZaloApi(

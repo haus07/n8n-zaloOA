@@ -37,7 +37,7 @@
 Tính năng chính:
 
 - ⚡ **Webhook Trigger**: Nhận realtime các sự kiện `user_send_text/image/link/audio/video/sticker/location/file/gif`, `follow`, `unfollow`, `user_submit_info`, `user_seen_message`,... Có xác thực chữ ký `X-ZEvent-Signature` và lọc event theo ý.
-- 💬 **Gửi Tin Tư Vấn (CS Message)**: Gửi tin nhắn văn bản tự do tới user đã tương tác với OA trong vòng 7 ngày (dùng cho chatbot AI phản hồi).
+- 💬 **Gửi Tin Tư Vấn (CS Message)**: Gửi tin nhắn **văn bản** hoặc **ảnh đính kèm** (URL hoặc Attachment ID) tới user đã tương tác với OA trong vòng 7 ngày (dùng cho chatbot AI phản hồi).
 - 📨 **ZBS Template Message**: Gửi tin mẫu đã duyệt qua số điện thoại.
 - 👤 **Quản lý Người Dùng**: Truy xuất danh sách người quan tâm, chi tiết người dùng.
 - 💭 **Quản lý Hội Thoại**: Đọc lịch sử tin nhắn đã trao đổi với khách hàng.
@@ -283,7 +283,9 @@ Mẹo:
 
 ### Resource: Tin Tư Vấn (CS Message)
 
-**Gửi Tin Tư Vấn Dạng Văn Bản** — gửi tin nhắn văn bản tới một người dùng cụ thể thông qua `user_id`. Dùng cho workflow **chatbot AI** phản hồi lại tin nhắn khách gửi vào OA.
+#### Gửi Tin Tư Vấn Dạng Văn Bản
+
+Gửi tin nhắn văn bản tới một người dùng cụ thể thông qua `user_id`. Dùng cho workflow **chatbot AI** phản hồi lại tin nhắn khách gửi vào OA.
 
 | Tham số | Bắt buộc | Mô tả |
 |---------|----------|-------|
@@ -291,6 +293,20 @@ Mẹo:
 | **Nội Dung Văn Bản** | ✅ | Nội dung tin nhắn văn bản (tối đa 500 ký tự theo Zalo) |
 
 > ⚠️ Điều kiện Zalo: chỉ gửi được tới user đã tương tác với OA trong **7 ngày** gần nhất. API endpoint: `POST https://openapi.zalo.me/v3.0/oa/message/cs` — xem [tài liệu Zalo](https://developers.zalo.me/docs/official-account/tin-nhan/tin-tu-van/gui-tin-tu-van-dang-van-ban).
+
+#### Gửi Tin Tư Vấn Đính Kèm Ảnh
+
+Gửi tin nhắn đính kèm ảnh (kèm caption tuỳ chọn) tới `user_id`. Hỗ trợ 2 nguồn ảnh: **URL công khai** hoặc **Attachment ID** (đã upload lên Zalo).
+
+| Tham số | Bắt buộc | Mô tả |
+|---------|----------|-------|
+| **User ID** | ✅ | Zalo User ID của người nhận |
+| **Nguồn Ảnh** | ✅ | `URL Ảnh Công Khai` hoặc `Attachment ID (Đã Upload Lên Zalo)` |
+| **URL Ảnh** | ✅ (nếu Nguồn Ảnh = URL) | Link công khai tới ảnh (JPG/PNG, ≤ 5MB theo Zalo) |
+| **Attachment ID** | ✅ (nếu Nguồn Ảnh = Attachment ID) | ID nhận được từ API upload của Zalo |
+| **Chú Thích (Caption)** | ❌ | Văn bản đi kèm ảnh (tuỳ chọn) |
+
+> ⚠️ Cùng điều kiện 7 ngày như tin văn bản. API endpoint: `POST https://openapi.zalo.me/v3.0/oa/message/cs` với `attachment.template_type=media`. Xem [tài liệu Zalo](https://developers.zalo.me/docs/official-account/tin-nhan/tin-tu-van/gui-tin-tu-van-dinh-kem-anh).
 
 ### Resource: Tin Nhắn ZBS Template
 
@@ -373,6 +389,7 @@ Tạo workflow với:
 - [Zalo OA API Reference](https://developers.zalo.me/docs/official-account/)
 - [Zalo OA Webhook — Sự kiện người dùng gửi tin nhắn](https://developers.zalo.me/docs/official-account/webhook/tin-nhan/su-kien-nguoi-dung-gui-tin-nhan)
 - [Zalo OA — Gửi tin tư vấn dạng văn bản](https://developers.zalo.me/docs/official-account/tin-nhan/tin-tu-van/gui-tin-tu-van-dang-van-ban)
+- [Zalo OA — Gửi tin tư vấn đính kèm ảnh](https://developers.zalo.me/docs/official-account/tin-nhan/tin-tu-van/gui-tin-tu-van-dinh-kem-anh)
 - [n8n Community Nodes Docs](https://docs.n8n.io/integrations/community-nodes/)
 - [GitHub Repository](https://github.com/bautran1911/n8n-nodes-zalo-oa)
 
@@ -413,6 +430,10 @@ Nếu node này giúp ích cho công việc của bạn, hãy ủng hộ tác gi
 ---
 
 ## Version History
+
+### v1.0.19 (2026-05)
+
+- 🖼️ **NEW:** Thêm operation **Gửi Tin Tư Vấn Đính Kèm Ảnh** trong resource **Tin Tư Vấn (CS Message)** — hỗ trợ gửi ảnh qua **URL công khai** hoặc **Attachment ID** (đã upload lên Zalo), kèm caption tuỳ chọn. Endpoint `POST /v3.0/oa/message/cs` với `attachment.template_type=media`.
 
 ### v1.0.17 (2026-05)
 
