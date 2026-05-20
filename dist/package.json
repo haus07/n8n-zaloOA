@@ -1,6 +1,6 @@
 {
     "name": "@bautran1911/n8n-nodes-zalo-oa",
-    "version": "1.0.15",
+    "version": "1.0.17",
     "description": "n8n community node tích hợp Zalo Official Account (Zalo OA) – gửi ZBS Template Message qua số điện thoại và tự động quản lý Access Token.",
     "license": "MIT",
     "homepage": "https://github.com/bautran1911/n8n-nodes-zalo-oa#readme",

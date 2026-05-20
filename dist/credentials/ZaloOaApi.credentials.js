@@ -64,7 +64,7 @@ class ZaloOaApi {
                 displayName: 'Tự động cập nhật token vào credential',
                 name: 'autoUpdateNotice',
                 type: 'notice',
-                default: 'Điền 3 trường bên dưới để node tự động ghi token mới về credential sau khi refresh.',
+                default: 'Điền 3 trường bên dưới để ghi token mới về credential khi chạy hành động Refresh Token (Resource: Token). Các hành động API khác không tự refresh.',
             },
             {
                 displayName: 'n8n Instance URL',

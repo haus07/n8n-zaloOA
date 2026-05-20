@@ -134,9 +134,10 @@ async function writeTokensToCredential(
 	}
 }
 
+const ZALO_TOKEN_EXPIRED_CODES = new Set([-124, 3, -216, -220, '-124', '3', '-216', '-220']);
+
 /**
- * Gọi Zalo API. Nếu token hết hạn (error -124 / 3), tự động refresh
- * và ghi token mới về credential, rồi retry.
+ * Gọi Zalo API. Không tự refresh token — chỉ hành động Resource Token mới làm mới.
  */
 async function callZaloApi(
 	ctx: IExecuteFunctions,
@@ -145,7 +146,6 @@ async function callZaloApi(
 	endpoint: string,
 	payload: IDataObject,
 	creds: ZaloCredentials,
-	retried = false,
 ): Promise<IDataObject> {
 	const options: IHttpRequestOptions = {
 		method,
@@ -171,30 +171,13 @@ async function callZaloApi(
 		throw new NodeOperationError(ctx.getNode(), err as Error);
 	}
 
-	// Zalo trả error -124, 3, -216, hoặc -220 = token hết hạn/không hợp lệ
 	const errorCode = response.error;
-	const isTokenExpired =
-		!retried &&
-		(errorCode === -124 ||
-			errorCode === 3 ||
-			errorCode === -216 ||
-			errorCode === -220 ||
-			errorCode === '-124' ||
-			errorCode === '3' ||
-			errorCode === '-216' ||
-			errorCode === '-220');
-
-	if (isTokenExpired) {
-		const newTokens = await refreshAccessToken(ctx, creds);
-		const newAccessToken = newTokens.access_token;
-		const newRefreshToken = newTokens.refresh_token;
-
-		creds.accessToken = newAccessToken;
-		creds.refreshToken = newRefreshToken;
-
-		await writeTokensToCredential(ctx, creds, newAccessToken, newRefreshToken);
-
-		return await callZaloApi(ctx, method, baseUrl, endpoint, payload, creds, true);
+	if (ZALO_TOKEN_EXPIRED_CODES.has(errorCode as number | string)) {
+		throw new NodeOperationError(
+			ctx.getNode(),
+			`Access Token hết hạn hoặc không hợp lệ (error: ${errorCode}). ` +
+				'Hãy chạy hành động "Refresh Token" (Resource: Token) để làm mới token, rồi gọi lại API.',
+		);
 	}
 
 	return response;

@@ -42,8 +42,7 @@ Tính năng chính:
 - 👤 **Quản lý Người Dùng**: Truy xuất danh sách người quan tâm, chi tiết người dùng.
 - 💭 **Quản lý Hội Thoại**: Đọc lịch sử tin nhắn đã trao đổi với khách hàng.
 - 🏢 **Thông Tin OA**: Lấy profile Zalo Official Account.
-- 🔄 **Tự động Refresh Access Token** khi hết hạn và ghi đè vào n8n credential.
-- 🔐 Auto-retry khi hết hạn token (áp dụng cho các mã lỗi `-124`, `3`, `-216`, `-220`).
+- 🔄 **Refresh Access Token** qua hành động Resource **Token** và ghi đè vào n8n credential (khi đã cấu hình n8n API).
 
 ---
 
@@ -80,7 +79,7 @@ Sau khi cài node, tạo credential **Zalo OA API** với các thông tin sau:
 | **n8n API Key** | Tạo tại n8n → **Settings → API → Create an API key** |
 | **Credential ID** | Sau khi lưu credential, xem ID trên URL trình duyệt: `.../credentials/<ID>` |
 
-Khi bạn bật **tự động cập nhật token** (điền đủ **n8n Instance URL**, **n8n API Key**, **Credential ID**), node gọi `PATCH /api/v1/credentials/:id` để ghi **Access Token** và **Refresh Token** mới. Payload gửi kèm luôn **OA Secret Key (Webhook Signature)** (giá trị hiện có trong credential) để trường này **không bị xóa trống** sau mỗi lần refresh — kể cả refresh thủ công (Resource **Token**) hay tự động khi gọi API và retry sau lỗi hết hạn token.
+Khi bạn điền đủ **n8n Instance URL**, **n8n API Key**, **Credential ID**, hành động **Refresh Token** (Resource **Token**) gọi `PATCH /api/v1/credentials/:id` để ghi **Access Token** và **Refresh Token** mới. Payload gửi kèm luôn **OA Secret Key (Webhook Signature)** (giá trị hiện có trong credential) để trường này **không bị xóa trống** sau mỗi lần refresh. Các hành động gọi API khác **không** tự refresh token.
 
 ---
 
@@ -133,7 +132,7 @@ Zalo sử dụng OAuth2 kết hợp PKCE để cấp quyền. Có **2 cách** l�
 
    ![Điền token vào credential n8n](docs/images/guides/n8n-credential-fill-tokens.png)
 
-> ⚠️ **Lưu ý:** Access Token từ API Explorer hết hạn sau **25 giờ**. Node sẽ tự động dùng Refresh Token để gia hạn khi phát hiện lỗi hết hạn (mã lỗi `-124` hoặc `3`).
+> ⚠️ **Lưu ý:** Access Token từ API Explorer hết hạn sau **25 giờ**. Hãy lên lịch workflow chạy hành động **Refresh Token** (Resource **Token**) định kỳ, hoặc chạy thủ công khi API trả lỗi hết hạn (`-124`, `3`, `-216`, `-220`).
 
 ---
 
@@ -202,7 +201,7 @@ curl -X POST https://oauth.zaloapp.com/v4/oa/access_token \
   -d "app_id=YOUR_APP_ID&refresh_token=YOUR_REFRESH_TOKEN&grant_type=refresh_token"
 ```
 
-> ✅ Node n8n đã tích hợp sẵn tính năng **tự động gia hạn token** — bạn không cần chạy lệnh trên thủ công. Xem phần [Operations → Refresh Token](#resource-token).
+> ✅ Node n8n có hành động **Refresh Token** (Resource **Token**) — bạn không cần chạy lệnh curl thủ công. Xem phần [Operations → Refresh Token](#resource-token).
 
 ---
 
@@ -414,6 +413,11 @@ Nếu node này giúp ích cho công việc của bạn, hãy ủng hộ tác gi
 ---
 
 ## Version History
+
+### v1.0.17 (2026-05)
+
+- 🔧 **BREAKING:** Các hành động gọi API Zalo (message, user, conversation, oa, cs) **không còn** tự refresh token và retry khi hết hạn. Chỉ hành động **Refresh Token** (Resource **Token**) mới làm mới token và ghi credential.
+- ℹ️ Khi token hết hạn, API trả lỗi rõ ràng hướng dẫn chạy Refresh Token.
 
 ### v1.0.16 (2026-05)
 
