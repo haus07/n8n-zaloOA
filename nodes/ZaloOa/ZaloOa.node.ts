@@ -461,12 +461,11 @@ export class ZaloOa implements INodeType {
 				type: 'options',
 				default: 'url',
 				description: 'Chọn cách cung cấp ảnh: dùng URL công khai hoặc Attachment ID đã upload lên Zalo',
-				// eslint-disable-next-line @n8n/community-nodes/options-sorted-alphabetically
 				options: [
 					// eslint-disable-next-line n8n-nodes-base/node-param-display-name-miscased
-					{ name: 'URL Ảnh Công Khai', value: 'url' },
-					// eslint-disable-next-line n8n-nodes-base/node-param-display-name-miscased
 					{ name: 'Attachment ID (Đã Upload Lên Zalo)', value: 'attachmentId' },
+					// eslint-disable-next-line n8n-nodes-base/node-param-display-name-miscased
+					{ name: 'URL Ảnh Công Khai', value: 'url' },
 				],
 				displayOptions: { show: { resource: ['cs'], operation: ['sendImage'] } },
 			},

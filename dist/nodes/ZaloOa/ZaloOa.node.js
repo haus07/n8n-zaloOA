@@ -353,8 +353,8 @@ class ZaloOa {
                     default: 'url',
                     description: 'Chọn cách cung cấp ảnh: dùng URL công khai hoặc Attachment ID đã upload lên Zalo',
                     options: [
-                        { name: 'URL Ảnh Công Khai', value: 'url' },
                         { name: 'Attachment ID (Đã Upload Lên Zalo)', value: 'attachmentId' },
+                        { name: 'URL Ảnh Công Khai', value: 'url' },
                     ],
                     displayOptions: { show: { resource: ['cs'], operation: ['sendImage'] } },
                 },
