@@ -1,6 +1,6 @@
 {
   "name": "@haus07/n8n-zalo-oa",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "n8n community node tích hợp Zalo Official Account (Zalo OA) – gửi tin tư vấn CS Message (chatbot AI), gửi ZBS Template Message qua SĐT, quản lý người dùng/hội thoại và tự động làm mới Access Token.",
   "license": "MIT",
   "homepage": "https://github.com/haus07/n8n-zaloOA#readme",
