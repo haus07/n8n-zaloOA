@@ -337,7 +337,7 @@ class ZaloOa {
                     default: 'sendTemplate',
                 },
                 {
-                    displayName: 'Số Điện Thoại Người Nhận',
+                    displayName: 'Số ĐIện Thoại Người Nhận',
                     name: 'phone',
                     type: 'string',
                     required: true,

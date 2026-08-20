@@ -402,7 +402,7 @@ export class ZaloOa implements INodeType {
 
 			// ── Số điện thoại người nhận ─────────────────────────────────────────────
 			{
-				displayName: 'Số Điện Thoại Người Nhận',
+				displayName: 'Số ĐIện Thoại Người Nhận',
 				name: 'phone',
 				type: 'string',
 				required: true,
