@@ -1,9 +1,9 @@
 {
-    "name": "@bautran1911/n8n-nodes-zalo-oa",
-    "version": "1.0.19",
-    "description": "n8n community node tích hợp Zalo Official Account (Zalo OA) – gửi ZBS Template Message qua số điện thoại và tự động quản lý Access Token.",
+    "name": "n8n-nodes-zalo-oa",
+    "version": "2.0.0",
+    "description": "n8n community node tích hợp Zalo Official Account (Zalo OA) – gửi tin tư vấn CS Message (chatbot AI), gửi ZBS Template Message qua SĐT, quản lý người dùng/hội thoại và tự động làm mới Access Token.",
     "license": "MIT",
-    "homepage": "https://github.com/bautran1911/n8n-nodes-zalo-oa#readme",
+    "homepage": "https://github.com/haus07/n8n-zaloOA#readme",
     "keywords": [
         "n8n-community-node-package",
         "n8n",
@@ -17,13 +17,12 @@
         "automation"
     ],
     "author": {
-        "name": "Báu đẹp trai",
-        "email": "bautran1911@gmail.com",
-        "url": "https://github.com/bautran1911"
+        "name": "haus07",
+        "url": "https://github.com/haus07"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/bautran1911/n8n-nodes-zalo-oa.git"
+        "url": "git+https://github.com/haus07/n8n-zaloOA.git"
     },
     "scripts": {
         "build": "n8n-node build",
