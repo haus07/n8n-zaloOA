@@ -79,14 +79,15 @@ export class ZaloOaApi implements ICredentialType {
 			name: 'autoUpdateNotice',
 			type: 'notice',
 			default:
-				'Điền 3 trường bên dưới để ghi token mới về credential khi chạy hành động Refresh Token (Resource: Token). Các hành động API khác không tự refresh.',
+				'Điền 3 trường bên dưới để node tự động ghi token mới về credential sau mỗi lần làm mới (kể cả auto-refresh khi token hết hạn). Nếu bỏ trống, token vẫn được làm mới trong bộ nhớ nhưng không lưu lại sau khi workflow kết thúc.',
 		},
 		{
 			displayName: 'n8n Instance URL',
 			name: 'n8nInstanceUrl',
 			type: 'string',
 			default: 'http://localhost:5678',
-			description: 'URL của n8n instance (ví dụ: http://localhost:5678 hoặc https://n8n.yourdomain.com)',
+			description:
+				'URL của n8n instance (ví dụ: http://localhost:5678 hoặc https://n8n.yourdomain.com)',
 		},
 		{
 			displayName: 'n8n API Key',
@@ -94,8 +95,7 @@ export class ZaloOaApi implements ICredentialType {
 			type: 'string',
 			typeOptions: { password: true },
 			default: '',
-			description:
-				'API Key của n8n. Tạo tại Settings → API → Create an API key',
+			description: 'API Key của n8n. Tạo tại Settings → API → Create an API key',
 		},
 		{
 			displayName: 'Credential ID',
@@ -122,8 +122,9 @@ export class ZaloOaApi implements ICredentialType {
 			displayName: 'Allowed Domains',
 			name: 'allowedDomains',
 			type: 'string',
-			default: 'oauth.zaloapp.com,openapi.zalo.me',
-			description: 'Danh sách domain được phép, cách nhau bằng dấu phẩy (ví dụ: oauth.zaloapp.com,openapi.zalo.me)',
+			default: 'oauth.zaloapp.com,openapi.zalo.me,business.openapi.zalo.me',
+			description:
+				'Danh sách domain được phép, cách nhau bằng dấu phẩy (ví dụ: oauth.zaloapp.com,openapi.zalo.me,business.openapi.zalo.me)',
 			displayOptions: {
 				show: { allowedHttpRequestDomains: ['domains'] },
 			},
@@ -134,11 +135,19 @@ export class ZaloOaApi implements ICredentialType {
 		credentials: ICredentialDataDecryptedObject,
 		requestOptions: IHttpRequestOptions,
 	): Promise<IHttpRequestOptions> => {
+		const accessToken = credentials.accessToken as string;
+
+		if (!accessToken || accessToken.trim() === '') {
+			throw new Error(
+				'[Zalo] Access Token đang bị bỏ trống. Vui lòng kiểm tra lại cài đặt credential.',
+			);
+		}
+
 		return {
 			...requestOptions,
 			headers: {
 				...requestOptions.headers,
-				access_token: credentials.accessToken as string,
+				access_token: accessToken,
 			},
 		};
 	};
@@ -151,5 +160,15 @@ export class ZaloOaApi implements ICredentialType {
 				access_token: '={{$credentials.accessToken}}',
 			},
 		},
+		rules: [
+			{
+				type: 'responseSuccessBody',
+				properties: {
+					message: 'Zalo OA API test thất bại. Access Token có thể không hợp lệ hoặc đã hết hạn.',
+					value: 0,
+					key: 'error',
+				},
+			},
+		],
 	};
 }

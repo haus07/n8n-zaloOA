@@ -2,104 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ZaloOa = void 0;
 const n8n_workflow_1 = require("n8n-workflow");
-const ZALO_ZBS_API_BASE = 'https://business.openapi.zalo.me';
-const ZALO_OA_API_BASE = 'https://openapi.zalo.me';
-const ZALO_TOKEN_URL = 'https://oauth.zaloapp.com/v4/oa/access_token';
-async function refreshAccessToken(ctx, creds) {
-    const body = new URLSearchParams();
-    body.append('app_id', creds.appId);
-    body.append('refresh_token', creds.refreshToken);
-    body.append('grant_type', 'refresh_token');
-    const options = {
-        method: 'POST',
-        url: ZALO_TOKEN_URL,
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            secret_key: creds.secretKey,
-        },
-        body,
-        json: true,
-    };
-    const response = (await ctx.helpers.httpRequest(options));
-    if (!response.access_token) {
-        throw new n8n_workflow_1.NodeOperationError(ctx.getNode(), `Zalo refresh token thất bại: ${JSON.stringify(response)}`);
-    }
-    return response;
-}
-async function writeTokensToCredential(ctx, creds, newAccessToken, newRefreshToken) {
-    var _a, _b;
-    const { n8nInstanceUrl, n8nApiKey, credentialId } = creds;
-    if (!n8nInstanceUrl || !n8nApiKey || !credentialId) {
-        return;
-    }
-    const baseUrl = n8nInstanceUrl.replace(/\/$/, '');
-    try {
-        const dataPayload = {
-            credentialName: creds.credentialName,
-            appId: creds.appId,
-            secretKey: creds.secretKey,
-            oaSecretKey: (_a = creds.oaSecretKey) !== null && _a !== void 0 ? _a : '',
-            accessToken: newAccessToken,
-            refreshToken: newRefreshToken,
-            n8nInstanceUrl: n8nInstanceUrl !== null && n8nInstanceUrl !== void 0 ? n8nInstanceUrl : '',
-            n8nApiKey: n8nApiKey !== null && n8nApiKey !== void 0 ? n8nApiKey : '',
-            credentialId: credentialId !== null && credentialId !== void 0 ? credentialId : '',
-            allowedHttpRequestDomains: (_b = creds.allowedHttpRequestDomains) !== null && _b !== void 0 ? _b : 'all',
-        };
-        if (creds.allowedHttpRequestDomains === 'domains' && creds.allowedDomains) {
-            dataPayload.allowedDomains = creds.allowedDomains;
-        }
-        const options = {
-            method: 'PATCH',
-            url: `${baseUrl}/api/v1/credentials/${credentialId}`,
-            headers: {
-                'X-N8N-API-KEY': n8nApiKey,
-                'Content-Type': 'application/json',
-            },
-            body: {
-                name: creds.credentialName,
-                type: 'zaloOaApi',
-                data: dataPayload,
-            },
-            json: true,
-        };
-        await ctx.helpers.httpRequest(options);
-    }
-    catch (err) {
-        ctx.logger.warn(`[ZaloOa] Không thể cập nhật credential: ${err.message}`);
-    }
-}
-const ZALO_TOKEN_EXPIRED_CODES = new Set([-124, 3, -216, -220, '-124', '3', '-216', '-220']);
-async function callZaloApi(ctx, method, baseUrl, endpoint, payload, creds) {
-    const options = {
-        method,
-        url: `${baseUrl}${endpoint}`,
-        headers: {
-            access_token: creds.accessToken,
-            'Content-Type': 'application/json',
-        },
-        json: true,
-    };
-    if (method === 'POST') {
-        options.body = payload;
-    }
-    else if (method === 'GET') {
-        options.qs = payload;
-    }
-    let response;
-    try {
-        response = (await ctx.helpers.httpRequest(options));
-    }
-    catch (err) {
-        throw new n8n_workflow_1.NodeOperationError(ctx.getNode(), err);
-    }
-    const errorCode = response.error;
-    if (ZALO_TOKEN_EXPIRED_CODES.has(errorCode)) {
-        throw new n8n_workflow_1.NodeOperationError(ctx.getNode(), `Access Token hết hạn hoặc không hợp lệ (error: ${errorCode}). ` +
-            'Hãy chạy hành động "Refresh Token" (Resource: Token) để làm mới token, rồi gọi lại API.');
-    }
-    return response;
-}
+const GenericFunctions_1 = require("./GenericFunctions");
 class ZaloOa {
     constructor() {
         this.description = {
@@ -108,8 +11,8 @@ class ZaloOa {
             icon: 'file:zaloOa.svg',
             group: ['transform'],
             version: 1,
-            subtitle: '={{$parameter["resource"] === "token" ? "Refresh Token" : ($parameter["resource"] === "user" ? "Người Dùng OA" : "Gửi ZBS Template")}}',
-            description: 'Gửi tin ZBS Template Message qua SĐT, quản lý người dùng OA và token',
+            subtitle: '={{$parameter["resource"] + " – " + $parameter["operation"]}}',
+            description: 'Gửi tin ZBS Template Message qua SĐT, quản lý người dùng OA, gửi tin tư vấn và quản lý token. Access Token tự động làm mới khi hết hạn.',
             defaults: {
                 name: 'Zalo OA',
             },
@@ -127,12 +30,12 @@ class ZaloOa {
                         {
                             name: 'Hội Thoại (Conversation)',
                             value: 'conversation',
-                            description: 'Lấy thông tin tin nhắn trong hội thoại',
+                            description: 'Lấy lịch sử tin nhắn trong hội thoại với người dùng',
                         },
                         {
-                            name: 'Người Dùng (OA)',
+                            name: 'Người Dùng (User)',
                             value: 'user',
-                            description: 'Quản lý thông tin người dùng của oa, truy xuất danh sách',
+                            description: 'Truy xuất thông tin và danh sách người dùng OA',
                         },
                         {
                             name: 'Thông Tin OA',
@@ -152,7 +55,7 @@ class ZaloOa {
                         {
                             name: 'Token',
                             value: 'token',
-                            description: 'Làm mới Access Token và ghi đè vào credential định kỳ',
+                            description: 'Làm mới Access Token thủ công (token cũng tự động làm mới khi hết hạn)',
                         },
                     ],
                     default: 'message',
@@ -173,7 +76,7 @@ class ZaloOa {
                         {
                             name: 'Lấy Thông Tin OA',
                             value: 'getOa',
-                            description: 'Truy xuất thông tin chung của Zalo Official Account (Tên, Avatar, Cover...)',
+                            description: 'Truy xuất thông tin chung của Zalo Official Account (Tên, Avatar, Cover…)',
                             action: 'Get OA information',
                         },
                     ],
@@ -209,7 +112,7 @@ class ZaloOa {
                     name: 'offset',
                     type: 'number',
                     default: 0,
-                    description: 'Vị trí bắt đầu lấy tin nhắn (mặc định 0 - tin nhắn gần nhất)',
+                    description: 'Vị trí bắt đầu lấy tin nhắn (mặc định 0 – tin nhắn gần nhất)',
                     displayOptions: { show: { resource: ['conversation'], operation: ['getConversation'] } },
                 },
                 {
@@ -366,7 +269,9 @@ class ZaloOa {
                     default: '',
                     placeholder: 'https://example.com/image.jpg',
                     description: 'Đường dẫn URL công khai tới ảnh (JPG/PNG, kích thước ≤ 5MB theo Zalo)',
-                    displayOptions: { show: { resource: ['cs'], operation: ['sendImage'], csImageSource: ['url'] } },
+                    displayOptions: {
+                        show: { resource: ['cs'], operation: ['sendImage'], csImageSource: ['url'] },
+                    },
                 },
                 {
                     displayName: 'Attachment ID',
@@ -375,10 +280,16 @@ class ZaloOa {
                     required: true,
                     default: '',
                     description: 'Attachment ID nhận được sau khi upload ảnh qua API upload của Zalo',
-                    displayOptions: { show: { resource: ['cs'], operation: ['sendImage'], csImageSource: ['attachmentId'] } },
+                    displayOptions: {
+                        show: {
+                            resource: ['cs'],
+                            operation: ['sendImage'],
+                            csImageSource: ['attachmentId'],
+                        },
+                    },
                 },
                 {
-                    displayName: 'Chú Thích (Caption - Tuỳ Chọn)',
+                    displayName: 'Chú Thích (Caption – Tuỳ Chọn)',
                     name: 'csImageCaption',
                     type: 'string',
                     default: '',
@@ -403,13 +314,36 @@ class ZaloOa {
                     default: 'refresh',
                 },
                 {
-                    displayName: 'Số ĐIện Thoại Người Nhận',
+                    displayName: 'ℹ️ Node tự động làm mới token khi phát hiện hết hạn trong mọi API call. Hành động này chỉ dùng khi bạn muốn chủ động làm mới token trước (ví dụ: trong scheduled workflow).',
+                    name: 'tokenRefreshNotice',
+                    type: 'notice',
+                    default: '',
+                    displayOptions: { show: { resource: ['token'] } },
+                },
+                {
+                    displayName: 'Operation',
+                    name: 'operation',
+                    type: 'options',
+                    noDataExpression: true,
+                    displayOptions: { show: { resource: ['message'] } },
+                    options: [
+                        {
+                            name: 'Gửi ZBS Template',
+                            value: 'sendTemplate',
+                            description: 'Gửi tin nhắn ZBS Template qua số điện thoại người nhận',
+                            action: 'Send ZBS template message',
+                        },
+                    ],
+                    default: 'sendTemplate',
+                },
+                {
+                    displayName: 'Số Điện Thoại Người Nhận',
                     name: 'phone',
                     type: 'string',
                     required: true,
                     default: '',
-                    placeholder: '84987654321',
-                    description: 'Số điện thoại người nhận định dạng quốc tế (ví dụ: 84987654321 hoặc +84987654321)',
+                    placeholder: '84987654321 hoặc 0987654321',
+                    description: 'Số điện thoại người nhận. Chấp nhận định dạng: 0987654321 hoặc 84987654321 hoặc +84987654321. Node sẽ tự chuẩn hoá về dạng 84xxxxxxxxx.',
                     displayOptions: { show: { resource: ['message'] } },
                 },
                 {
@@ -422,14 +356,38 @@ class ZaloOa {
                     displayOptions: { show: { resource: ['message'] } },
                 },
                 {
-                    displayName: 'Dữ Liệu Template (JSON)',
+                    displayName: 'Dữ Liệu Template',
                     name: 'templateData',
-                    type: 'json',
-                    required: true,
-                    default: '{}',
-                    description: 'Object JSON chứa các biến tương ứng với template. Ví dụ: {"customer":"Nguyễn Văn A","amount":"100.000"}.',
-                    typeOptions: { rows: 5 },
+                    type: 'fixedCollection',
+                    typeOptions: { multipleValues: true, sortable: true },
+                    placeholder: 'Thêm biến template',
+                    default: { items: [] },
+                    description: 'Các biến cần điền vào template. Mỗi mục là một cặp Tên biến → Giá trị. Ví dụ: key=customer, value=Nguyễn Văn A.',
                     displayOptions: { show: { resource: ['message'] } },
+                    options: [
+                        {
+                            name: 'items',
+                            displayName: 'Biến Template',
+                            values: [
+                                {
+                                    displayName: 'Tên Biến (Key)',
+                                    name: 'key',
+                                    type: 'string',
+                                    default: '',
+                                    placeholder: 'ví dụ: customer',
+                                    description: 'Tên biến khớp với template đã đăng ký trên Zalo',
+                                },
+                                {
+                                    displayName: 'Giá Trị (Value)',
+                                    name: 'value',
+                                    type: 'string',
+                                    default: '',
+                                    placeholder: 'ví dụ: Nguyễn Văn A',
+                                    description: 'Giá trị điền vào biến',
+                                },
+                            ],
+                        },
+                    ],
                 },
                 {
                     displayName: 'Tracking ID (Tuỳ Chọn)',
@@ -463,6 +421,7 @@ class ZaloOa {
         };
     }
     async execute() {
+        var _a, _b, _c, _d, _e;
         const items = this.getInputData();
         const returnData = [];
         const rawCreds = await this.getCredentials('zaloOaApi');
@@ -476,154 +435,141 @@ class ZaloOa {
             n8nInstanceUrl: rawCreds.n8nInstanceUrl || '',
             n8nApiKey: rawCreds.n8nApiKey || '',
             credentialId: rawCreds.credentialId || '',
-            allowedHttpRequestDomains: (rawCreds.allowedHttpRequestDomains || 'all'),
+            allowedHttpRequestDomains: (rawCreds.allowedHttpRequestDomains ||
+                'all'),
             allowedDomains: rawCreds.allowedDomains || '',
         };
         for (let i = 0; i < items.length; i++) {
             const resource = this.getNodeParameter('resource', i);
             let result = {};
-            if (resource === 'token') {
-                const newTokens = await refreshAccessToken(this, creds);
-                const newAccessToken = newTokens.access_token;
-                const newRefreshToken = newTokens.refresh_token;
-                creds.accessToken = newAccessToken;
-                creds.refreshToken = newRefreshToken;
-                await writeTokensToCredential(this, creds, newAccessToken, newRefreshToken);
-                result = {
-                    success: true,
-                    access_token: newAccessToken,
-                    refresh_token: newRefreshToken,
-                    credentialUpdated: !!(creds.n8nInstanceUrl && creds.n8nApiKey && creds.credentialId),
-                    message: creds.credentialId
-                        ? 'Token đã được làm mới và ghi đè vào credential thành công.'
-                        : 'Token đã được làm mới. (Chưa có Credential ID → chưa ghi đè tự động)',
-                };
-            }
-            else if (resource === 'message') {
-                const phone = this.getNodeParameter('phone', i);
-                const templateId = this.getNodeParameter('templateId', i);
-                const templateDataRaw = this.getNodeParameter('templateData', i);
-                const trackingId = this.getNodeParameter('trackingId', i);
-                const sendingMode = this.getNodeParameter('sendingMode', i);
-                let templateData;
-                if (typeof templateDataRaw === 'string') {
-                    try {
-                        templateData = JSON.parse(templateDataRaw);
+            switch (resource) {
+                case 'token': {
+                    const newTokens = await (0, GenericFunctions_1.zaloRefreshAccessToken)(this, creds);
+                    creds.accessToken = (_a = newTokens.access_token) !== null && _a !== void 0 ? _a : '';
+                    creds.refreshToken = (_b = newTokens.refresh_token) !== null && _b !== void 0 ? _b : '';
+                    await (0, GenericFunctions_1.persistTokensToCredential)(this, creds, (_c = newTokens.access_token) !== null && _c !== void 0 ? _c : '', (_d = newTokens.refresh_token) !== null && _d !== void 0 ? _d : '');
+                    result = {
+                        success: true,
+                        access_token: newTokens.access_token,
+                        refresh_token: newTokens.refresh_token,
+                        credentialUpdated: !!(creds.n8nInstanceUrl && creds.n8nApiKey && creds.credentialId),
+                        message: creds.credentialId
+                            ? 'Token đã được làm mới và ghi đè vào credential thành công.'
+                            : 'Token đã được làm mới. (Chưa có Credential ID → chưa ghi đè tự động)',
+                    };
+                    break;
+                }
+                case 'message': {
+                    const rawPhone = this.getNodeParameter('phone', i);
+                    const templateId = this.getNodeParameter('templateId', i);
+                    const trackingId = this.getNodeParameter('trackingId', i);
+                    const sendingMode = this.getNodeParameter('sendingMode', i);
+                    const phone = (0, GenericFunctions_1.normalizePhoneNumber)(rawPhone);
+                    if (!(0, GenericFunctions_1.isValidVietnamesePhone)(rawPhone)) {
+                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), `Số điện thoại không hợp lệ: "${rawPhone}". ` +
+                            'Định dạng chấp nhận: 0987654321, 84987654321, hoặc +84987654321.', { itemIndex: i });
                     }
-                    catch {
-                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), `Dữ liệu template không hợp lệ (không phải JSON hợp lệ): ${templateDataRaw}`, { itemIndex: i });
+                    const rawTemplateData = this.getNodeParameter('templateData', i);
+                    const templateData = (0, GenericFunctions_1.formatZaloTemplateData)((_e = rawTemplateData.items) !== null && _e !== void 0 ? _e : []);
+                    const requestBody = {
+                        phone,
+                        template_id: templateId,
+                        template_data: templateData,
+                        sending_mode: Number(sendingMode),
+                    };
+                    if (trackingId) {
+                        requestBody.tracking_id = trackingId;
                     }
+                    result = await (0, GenericFunctions_1.zaloApiRequest)(this, 'POST', GenericFunctions_1.ZALO_ZBS_API_BASE, '/message/template', requestBody, creds, this.getNode());
+                    break;
                 }
-                else {
-                    templateData = templateDataRaw;
+                case 'oa': {
+                    result = await (0, GenericFunctions_1.zaloApiRequest)(this, 'GET', GenericFunctions_1.ZALO_API_BASE, '/v2.0/oa/getoa', {}, creds, this.getNode());
+                    break;
                 }
-                const requestBody = {
-                    phone,
-                    template_id: templateId,
-                    template_data: templateData,
-                    sending_mode: Number(sendingMode),
-                };
-                if (trackingId) {
-                    requestBody.tracking_id = trackingId;
-                }
-                result = await callZaloApi(this, 'POST', ZALO_ZBS_API_BASE, '/message/template', requestBody, creds);
-            }
-            else if (resource === 'oa') {
-                const operation = this.getNodeParameter('operation', i);
-                if (operation === 'getOa') {
-                    result = await callZaloApi(this, 'GET', ZALO_OA_API_BASE, '/v2.0/oa/getoa', {}, creds);
-                }
-            }
-            else if (resource === 'conversation') {
-                const operation = this.getNodeParameter('operation', i);
-                if (operation === 'getConversation') {
+                case 'conversation': {
                     const userId = this.getNodeParameter('userId', i);
                     const offset = this.getNodeParameter('offset', i);
                     const count = this.getNodeParameter('count', i);
-                    const reqData = {
-                        user_id: userId,
-                        offset,
-                        count,
-                    };
-                    result = await callZaloApi(this, 'GET', ZALO_OA_API_BASE, '/v2.0/oa/conversation', { data: JSON.stringify(reqData) }, creds);
+                    result = await (0, GenericFunctions_1.zaloApiRequest)(this, 'GET', GenericFunctions_1.ZALO_API_BASE, '/v2.0/oa/conversation', {
+                        data: JSON.stringify({ user_id: userId, offset, count }),
+                    }, creds, this.getNode());
+                    break;
                 }
-            }
-            else if (resource === 'cs') {
-                const operation = this.getNodeParameter('operation', i);
-                if (operation === 'sendText') {
-                    const userId = this.getNodeParameter('csUserId', i);
-                    const text = this.getNodeParameter('csText', i);
-                    const requestBody = {
-                        recipient: { user_id: userId },
-                        message: { text },
-                    };
-                    result = await callZaloApi(this, 'POST', ZALO_OA_API_BASE, '/v3.0/oa/message/cs', requestBody, creds);
-                }
-                else if (operation === 'sendImage') {
-                    const userId = this.getNodeParameter('csUserId', i);
-                    const imageSource = this.getNodeParameter('csImageSource', i);
-                    const caption = this.getNodeParameter('csImageCaption', i);
-                    const element = { media_type: 'image' };
-                    if (imageSource === 'url') {
-                        const imageUrl = this.getNodeParameter('csImageUrl', i);
-                        if (!imageUrl) {
-                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'URL ảnh không được để trống khi nguồn ảnh là URL.', { itemIndex: i });
-                        }
-                        element.url = imageUrl;
+                case 'cs': {
+                    const operation = this.getNodeParameter('operation', i);
+                    const csUserId = this.getNodeParameter('csUserId', i);
+                    if (operation === 'sendText') {
+                        const text = this.getNodeParameter('csText', i);
+                        result = await (0, GenericFunctions_1.zaloApiRequest)(this, 'POST', GenericFunctions_1.ZALO_API_BASE, '/v3.0/oa/message/cs', {
+                            recipient: { user_id: csUserId },
+                            message: { text },
+                        }, creds, this.getNode());
                     }
-                    else {
-                        const attachmentId = this.getNodeParameter('csAttachmentId', i);
-                        if (!attachmentId) {
-                            throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Attachment ID không được để trống khi nguồn ảnh là Attachment ID.', { itemIndex: i });
+                    else if (operation === 'sendImage') {
+                        const imageSource = this.getNodeParameter('csImageSource', i);
+                        const caption = this.getNodeParameter('csImageCaption', i);
+                        const element = { media_type: 'image' };
+                        if (imageSource === 'url') {
+                            const imageUrl = this.getNodeParameter('csImageUrl', i);
+                            if (!imageUrl) {
+                                throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'URL ảnh không được để trống khi nguồn ảnh là URL.', { itemIndex: i });
+                            }
+                            element.url = imageUrl;
                         }
-                        element.attachment_id = attachmentId;
-                    }
-                    const message = {
-                        attachment: {
-                            type: 'template',
-                            payload: {
-                                template_type: 'media',
-                                elements: [element],
+                        else {
+                            const attachmentId = this.getNodeParameter('csAttachmentId', i);
+                            if (!attachmentId) {
+                                throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Attachment ID không được để trống khi nguồn ảnh là Attachment ID.', { itemIndex: i });
+                            }
+                            element.attachment_id = attachmentId;
+                        }
+                        const message = {
+                            attachment: {
+                                type: 'template',
+                                payload: {
+                                    template_type: 'media',
+                                    elements: [element],
+                                },
                             },
-                        },
-                    };
-                    if (caption) {
-                        message.text = caption;
+                        };
+                        if (caption) {
+                            message.text = caption;
+                        }
+                        result = await (0, GenericFunctions_1.zaloApiRequest)(this, 'POST', GenericFunctions_1.ZALO_API_BASE, '/v3.0/oa/message/cs', {
+                            recipient: { user_id: csUserId },
+                            message,
+                        }, creds, this.getNode());
                     }
-                    const requestBody = {
-                        recipient: { user_id: userId },
-                        message,
-                    };
-                    result = await callZaloApi(this, 'POST', ZALO_OA_API_BASE, '/v3.0/oa/message/cs', requestBody, creds);
+                    break;
                 }
-            }
-            else if (resource === 'user') {
-                const operation = this.getNodeParameter('operation', i);
-                if (operation === 'getList') {
-                    const offset = this.getNodeParameter('offset', i);
-                    const count = this.getNodeParameter('count', i);
-                    const tagName = this.getNodeParameter('tagName', i);
-                    const lastInteractionPeriod = this.getNodeParameter('lastInteractionPeriod', i);
-                    const isFollower = this.getNodeParameter('isFollower', i);
-                    const reqData = {
-                        offset,
-                        count,
-                    };
-                    if (tagName)
-                        reqData.tag_name = tagName;
-                    if (lastInteractionPeriod)
-                        reqData.last_interaction_period = lastInteractionPeriod;
-                    if (isFollower)
-                        reqData.is_follower = isFollower;
-                    result = await callZaloApi(this, 'GET', ZALO_OA_API_BASE, '/v3.0/oa/user/getlist', { data: JSON.stringify(reqData) }, creds);
+                case 'user': {
+                    const operation = this.getNodeParameter('operation', i);
+                    if (operation === 'getList') {
+                        const offset = this.getNodeParameter('offset', i);
+                        const count = this.getNodeParameter('count', i);
+                        const tagName = this.getNodeParameter('tagName', i);
+                        const lastInteractionPeriod = this.getNodeParameter('lastInteractionPeriod', i);
+                        const isFollower = this.getNodeParameter('isFollower', i);
+                        const reqData = { offset, count };
+                        if (tagName)
+                            reqData.tag_name = tagName;
+                        if (lastInteractionPeriod)
+                            reqData.last_interaction_period = lastInteractionPeriod;
+                        if (isFollower)
+                            reqData.is_follower = isFollower;
+                        result = await (0, GenericFunctions_1.zaloApiRequest)(this, 'GET', GenericFunctions_1.ZALO_API_BASE, '/v3.0/oa/user/getlist', { data: JSON.stringify(reqData) }, creds, this.getNode());
+                    }
+                    else if (operation === 'getDetail') {
+                        const userId = this.getNodeParameter('userId', i);
+                        result = await (0, GenericFunctions_1.zaloApiRequest)(this, 'GET', GenericFunctions_1.ZALO_API_BASE, '/v3.0/oa/user/detail', { data: JSON.stringify({ user_id: userId }) }, creds, this.getNode());
+                    }
+                    break;
                 }
-                else if (operation === 'getDetail') {
-                    const userId = this.getNodeParameter('userId', i);
-                    const reqData = {
-                        user_id: userId,
-                    };
-                    result = await callZaloApi(this, 'GET', ZALO_OA_API_BASE, '/v3.0/oa/user/detail', { data: JSON.stringify(reqData) }, creds);
-                }
+                default:
+                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), `Resource không hỗ trợ: "${resource}"`, {
+                        itemIndex: i,
+                    });
             }
             returnData.push({ json: result, pairedItem: { item: i } });
         }
